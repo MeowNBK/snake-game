@@ -1,11 +1,12 @@
 
 
 // ========== example_main.cpp ==========
-// Minimal demo using the gfx API. Put this next to gfx.h/gfx.cpp and compile/link with SDL2/TTF.
+// Minimal demo using the gfx API. Put this next to gfx.h/gfx.cpp and
+// compile/link with SDL2/TTF.
 
-
-#include "gfx.h"
 #include <iostream>
+
+#include "graphics/gfx.h"
 
 int main() {
     if (!gfx::init("Demo", 800, 600)) return -1;
@@ -21,12 +22,15 @@ int main() {
         gfx::event e;
         while ((e = gfx::poll_event()).type != gfx::event::Type::NONE) {
             if (e.type == gfx::event::Type::QUIT) running = false;
-            if (e.type == gfx::event::Type::KEYDOWN && e.key == gfx::key::ESCAPE) running = false;
-            if (e.type == gfx::event::Type::KEYDOWN && e.key == gfx::key::F) gfx::toggle_fullscreen();
+            if (e.type == gfx::event::Type::KEYDOWN &&
+                e.key == gfx::key::ESCAPE)
+                running = false;
+            if (e.type == gfx::event::Type::KEYDOWN && e.key == gfx::key::L)
+                gfx::toggle_fullscreen();
         }
 
-        gfx::begin_draw(gfx::colors::NightSky);
-        gfx::draw_text("Xin chao the gioi!", "ui", 20, 20, gfx::colors::White);
+        gfx::begin_draw(gfx::colors::night_sky);
+        gfx::draw_text("Xin chao the gioi!", "ui", 20, 20, gfx::colors::white);
         if (logo) gfx::draw_texture(logo, 400, 300, 0, 0, 0.0, true);
         gfx::end_draw();
 

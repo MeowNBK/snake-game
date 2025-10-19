@@ -1,13 +1,6 @@
-#include "gfx_style.h"
-
-#include <algorithm>
-#include <cctype>
-#include <fstream>
-#include <iostream>
-#include <regex>
-#include <sstream>
-
-#include "gfx_type.h"
+#include "graphics/gfx_style.h"
+#include "graphics/gfx_type.h"
+#include "core/pch.h"
 
 namespace gfx {
 namespace style {

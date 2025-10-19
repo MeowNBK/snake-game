@@ -5,7 +5,7 @@
 #include <string>
 #include <string_view>
 
-#include "gfx_type.h"
+#include "graphics/gfx_type.h"
 
 namespace gfx {
 

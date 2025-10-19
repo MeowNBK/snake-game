@@ -5,8 +5,8 @@
 #include <string>
 #include <vector>
 
-#include "gfx.h"
-#include "gfx_type.h"
+#include "graphics/gfx.h"
+#include "graphics/gfx_type.h"
 
 namespace gfx {
 namespace style {

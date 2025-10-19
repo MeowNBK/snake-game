@@ -1,0 +1,110 @@
+/* assets/style.css */
+
+/* --- Cài đặt chung --- */
+text {
+    font: "medium";
+    color: #FFFFFF; /* white */
+}
+
+/* --- Màn hình Menu --- */
+#title {
+    font: "large";
+    color: #00FFFF; /* neon_cyan */
+}
+
+.menu_item {
+    font: "medium";
+    color: #FFFFFF; /* white */
+}
+
+.menu_item.selected {
+    color: #FFE600; /* neon_yellow */
+    background-color: #9C27B0; /* vapor_purple */
+}
+
+.info_text {
+    font: "small";
+    color: #CCCCCC; /* gray80 */
+}
+
+
+/* --- Màn hình chơi game --- */
+#score {
+    font: "medium";
+    color: #FFFFFF; /* white */
+}
+
+/* --- Màn hình Game Over --- */
+.game_over_overlay {
+    background-color: rgba(20, 20, 20, 210);
+    blended: true;
+}
+
+#game_over_title {
+    font: "large";
+    color: #FF6B00; /* neon_orange */
+}
+
+#score_info {
+    font: "medium";
+    color: #FFFFFF;
+}
+
+#restart_prompt {
+    font: "medium";
+    color: #00B4B4; /* cyan */
+}
+
+/* --- Thông báo Thành Tích --- */
+#notification_bg {
+    background-color: rgba(20, 20, 20, 220);
+    blended: true;
+}
+
+#notification_text {
+    font: "medium";
+    color: #FFFF00; /* yellow */
+}
+
+/* --- Màn hình Danh sách Thành Tích --- */
+#ach_title {
+    font: "large";
+    color: #00FFFF; /* neon_cyan */
+}
+
+#ach_progress {
+    font: "medium";
+    color: #C8B4DC; /* pastel_lilac */
+}
+
+.ach_unlocked {
+    font: "medium";
+    color: #39FF14; /* vapor_neon_green */
+}
+.ach_desc_unlocked {
+    font: "small";
+    color: #FFFFFF;
+}
+
+.ach_locked {
+    font: "medium";
+    color: #808080; /* gray50 */
+}
+.ach_desc_locked {
+    font: "small";
+    color: #404040; /* dark_gray */
+}
+.ach_prompt {
+    font: "small";
+    color: #00B4B4; /* cyan */
+}
+
+/* --- Màn hình Training --- */
+#training_title {
+    font: "large";
+    color: #FFFFFF;
+}
+#training_text {
+    font: "medium";
+    color: #00B4B4; /* cyan */
+}
