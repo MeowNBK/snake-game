@@ -34,6 +34,14 @@ endif()
 # --- Executable ---
 add_executable(snake_game
     "src/main.cpp"
+        # --- MODULES MOI ---
+        src/core/game_state.cpp
+        src/core/config.cpp
+        src/core/system.cpp
+        src/core/input_handler.cpp
+        src/ai/expert_data.cpp
+        src/game/game_logic.cpp
+        src/game/renderer.cpp
 )
 
 set_target_properties(snake_game PROPERTIES
