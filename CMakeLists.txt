@@ -17,19 +17,19 @@ message(STATUS "Found SDL2: ${SDL2_LIBRARY}")
 message(STATUS "Found SDL2_ttf: ${SDL2_TTF_LIBRARY}") 
 
 # --- GFX (object library), tìm sources trong src/graphics nếu bạn đã di chuyển files ---
-# file(GLOB GFX_SOURCES
-#     "src/graphics/*.cpp"
-# )
+file(GLOB GFX_SOURCES
+    "src/graphics/*.cpp"
+)
 
-# if (GFX_SOURCES)
-#     add_library(gfx_objects OBJECT ${GFX_SOURCES})
-#     target_include_directories(gfx_objects PUBLIC
-#         "${PROJECT_SOURCE_DIR}/include/graphics"
-#     )
-#     message(STATUS "GFX: Found ${GFX_SOURCES}")
-# else()
-#     message(WARNING "Không tìm thấy file nguồn GFX nào trong 'src/graphics/'.")
-# endif()
+if (GFX_SOURCES)
+    add_library(gfx_objects OBJECT ${GFX_SOURCES})
+    target_include_directories(gfx_objects PUBLIC
+        "${PROJECT_SOURCE_DIR}/include/graphics"
+    )
+    message(STATUS "GFX: Found ${GFX_SOURCES}")
+else()
+    message(WARNING "Không tìm thấy file nguồn GFX nào trong 'src/graphics/'.")
+endif()
 
 # --- Executable ---
 add_executable(snake_game
@@ -45,12 +45,17 @@ target_include_directories(snake_game PUBLIC
     "${PROJECT_SOURCE_DIR}/include"
 )
 
-# # --- Link GFX objects only if created ---
-# if (TARGET gfx_objects)
-#     target_link_libraries(snake_game PRIVATE
-#         $<TARGET_OBJECTS:gfx_objects>
-#     )
-# endif()
+target_include_directories(gfx_objects PUBLIC
+    "${PROJECT_SOURCE_DIR}"
+    "${PROJECT_SOURCE_DIR}/include"
+)
+
+# --- Link GFX objects only if created ---
+if (TARGET gfx_objects)
+    target_link_libraries(snake_game PRIVATE
+        $<TARGET_OBJECTS:gfx_objects>
+    )
+endif()
 
 # --- Link SDL2 and SDL2_ttf robustly ---
 # SDL2

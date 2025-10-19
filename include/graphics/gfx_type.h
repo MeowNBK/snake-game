@@ -32,8 +32,24 @@ struct color {
         other.from_int(0);
         return *this;
     }
-    inline color& operator=(const std::string& s) noexcept { from_string(s); }
-    inline color& operator=(int32_t i) noexcept { from_int(i); }
+    inline color& operator=(const std::string& s) noexcept { 
+        from_string(s);
+        return *this;
+    }
+    inline color& operator=(int32_t i) noexcept { 
+        from_int(i);
+        return *this;
+    }
+    inline color& operator=(std::initializer_list<int> list) noexcept {
+        auto it = list.begin();
+        if (list.size() >= 4) {
+            r = *it++;
+            g = *it++;
+            b = *it++;
+            a = *it++;
+        }
+        return *this;
+    }
     ~color() noexcept = default;
 
     [[nodiscard]] inline int32_t as_int() const noexcept {

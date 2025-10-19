@@ -1,6 +1,4 @@
-#include <SDL2/SDL.h>
-#include <SDL2/SDL_ttf.h>
-
+// === ĐÃ LOẠI BỎ SDL VÀ TTF, THAY BẰNG GFX ===
 #include <iostream>
 #include <string>
 #include <vector>
@@ -11,65 +9,38 @@
 #include <algorithm>
 #include <random>
 #include <cmath> // Cần cho std::hypot
-// #include <windows.h>
+
+// Thư viện GFX mới
+#include "graphics/gfx.h" 
 
 // Các file header tự tạo
 #include "core/common.h"
 #include "ai/ai_player.h"
 #include "game/achievements.h"
-#include "misc/colors.h"
+// #include "libs/colors.h" // KHÔNG DÙNG NỮA, gfx::colors đã thay thế
 
 // === Cấu trúc Config & Các biến toàn cục ===
 
 struct Config {
-    int fps = 30;
+    int fps = 30; // GFX không dùng, nhưng logic game có thể dùng
     double learning_rate = 0.001;
-    // double epsilon = 0.9;
     double epsilon = 0.0;
-    // double min_epsilon = 0.05;
     double min_epsilon = 0.0;
     double epsilon_decay = 0.9995;
     int epochs = 30;
     int batch_size = 32;
 };
 
-// Lớp Player cho người chơi
-// class Player {
-// public:
-//     std::deque<Point> body;
-//     Dir direction;
-//     bool is_alive;
-    
-//     void reset(Point start_pos, Dir start_dir) {
-//         body.clear();
-//         body.push_front(start_pos);
-//         Point second_segment = start_pos;
-//         switch (start_dir) {
-//             case Dir::UP:    second_segment.y++; break;
-//             case Dir::DOWN:  second_segment.y--; break;
-//             case Dir::LEFT:  second_segment.x++; break;
-//             case Dir::RIGHT: second_segment.x--; break;
-//         }
-//         body.push_back(second_segment);
-//         direction = start_dir;
-//         is_alive = true;
-//     }
-// };
-
-// SDL
-SDL_Window* window = nullptr;
-SDL_Renderer* renderer = nullptr;
-TTF_Font* font_medium = nullptr;
-TTF_Font* font_large = nullptr;
-TTF_Font* font_small = nullptr;
+// === LOẠI BỎ CÁC BIẾN TOÀN CỤC SDL ===
+// SDL_Window* window = nullptr;
+// SDL_Renderer* renderer = nullptr;
+// TTF_Font* font_medium = nullptr;
+// TTF_Font* font_large = nullptr;
+// TTF_Font* font_small = nullptr;
 
 // Trạng thái game
 bool is_running = true;
-// enum class GameMode { MENU, PLAYING, GAME_OVER, ACHIEVEMENT_LIST, HEADLESS_TRAINING };
 GameMode current_mode = GameMode::MENU;
-
-// Chế độ chơi cụ thể, dùng để xác định logic
-// enum class PlayMode { PLAYER_ONLY, AI_ONLY, PLAYER_VS_AI };
 PlayMode play_mode_cache = PlayMode::PLAYER_ONLY;
 int selected_menu_item = 0;
 
@@ -85,8 +56,8 @@ PlayerStats ai_stats;
 // Biến theo dõi trạng thái cho thành tích
 int player_apples_this_game = 0;
 int ai_apples_this_game = 0;
-Uint32 game_start_time = 0;
-Uint32 mirror_match_start_time = 0;
+uint32_t game_start_time = 0;
+uint32_t mirror_match_start_time = 0;
 int steps_since_apple = 0;
 
 std::vector<AIPlayer::Experience> expert_demonstrations;
@@ -100,59 +71,66 @@ void handle_input();
 void reset_game();
 void update();
 void render();
-void render_text(const std::string& text, int x, int y, SDL_Color color, TTF_Font* font, bool is_centered = false);
+// void render_text(...); // KHÔNG CẦN NỮA, gfx::draw_text đã thay thế
 void render_menu();
 void render_game();
 void render_game_over();
 void spawn_apple();
 
-// --- Triển khai các hàm của AchievementManager cần SDL ---
-// Đặt ở đây vì chúng cần hàm render_text và các biến toàn cục
-void AchievementManager::render_notifications(SDL_Renderer* renderer, TTF_Font* font) {
+// --- Triển khai các hàm của AchievementManager cần GFX ---
+// === ĐÃ REFACTOR SANG GFX ===
+void AchievementManager::render_notifications(const std::string& font_id) {
     if (notification_queue.empty()) return;
-    Uint32 current_time = SDL_GetTicks();
+    uint32_t current_time = gfx::get_ticks();
     if (notification_start_time == 0) {
         notification_start_time = current_time;
     }
     if (current_time - notification_start_time < 3000) {
         const Achievement& ach = notification_queue.front();
         std::string text = "Thành Tích Mới: " + ach.name;
-        SDL_Surface* surface = TTF_RenderUTF8_Blended(font, text.c_str(), Colors::Yellow);
-        if(!surface) return;
-        int text_w = surface->w; int text_h = surface->h;
-        SDL_Rect bg_rect = {(WINDOW_W - text_w - 20) / 2, WINDOW_H - 60, text_w + 20, text_h + 10};
-        SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
-        SDL_SetRenderDrawColor(renderer, 20, 20, 20, 220);
-        SDL_RenderFillRect(renderer, &bg_rect);
-        SDL_Rect dst_rect = {(WINDOW_W - text_w) / 2, WINDOW_H - 55, text_w, text_h};
-        SDL_Texture* texture = SDL_CreateTextureFromSurface(renderer, surface);
-        SDL_RenderCopy(renderer, texture, nullptr, &dst_rect);
-        SDL_FreeSurface(surface); SDL_DestroyTexture(texture);
+        
+        int text_w = 0, text_h = 0;
+        gfx::get_text_size(text, font_id, text_w, text_h);
+
+        int bg_x = (WINDOW_W - text_w - 20) / 2;
+        int bg_y = WINDOW_H - 60;
+        int bg_w = text_w + 20;
+        int bg_h = text_h + 10;
+        
+        gfx::set_blended_mode(true);
+        // Dùng màu từ gfx_type.h hoặc tạo màu tại chỗ
+        gfx::draw_rect(bg_x, bg_y, bg_w, bg_h, {20, 20, 20, 220}, true);
+        
+        int text_x = (WINDOW_W - text_w) / 2;
+        int text_y = WINDOW_H - 55;
+        gfx::draw_text(text, font_id, text_x, text_y, gfx::colors::yellow);
+        gfx::set_blended_mode(false); // Trả lại
     } else {
         notification_queue.pop_front();
         notification_start_time = 0;
     }
 }
 
-void AchievementManager::render_list_screen(SDL_Renderer* renderer, TTF_Font* font_title, TTF_Font* font_text) {
-    render_text("Phòng Truyền Thống", 0, 50, Colors::NeonCyan, font_title, true);
+// === ĐÃ REFACTOR SANG GFX ===
+void AchievementManager::render_list_screen(const std::string& font_title_id, const std::string& font_text_id, const std::string& font_small_id) {
+    gfx::draw_text("Phòng Truyền Thống", font_title_id, 0, 50, gfx::colors::neon_cyan, true);
     int y_pos = 120;
     int unlocked_count = 0;
     for (const auto& pair : achievements) {
         const Achievement& ach = pair.second;
         if (ach.unlocked) {
-            render_text(ach.name, 50, y_pos, Colors::VaporNeonGreen, font_text, false);
-            render_text(ach.description, 70, y_pos + 25, Colors::White, font_small);
+            gfx::draw_text(ach.name, font_text_id, 50, y_pos, gfx::colors::vapor_neon_green, false);
+            gfx::draw_text(ach.description, font_small_id, 70, y_pos + 25, gfx::colors::white);
             unlocked_count++;
         } else {
-            render_text("Thành Tích Bí Ẩn", 50, y_pos, Colors::Gray50, font_text, false);
-            render_text("????????????????", 70, y_pos + 25, Colors::DarkGray, font_small);
+            gfx::draw_text("Thành Tích Bí Ẩn", font_text_id, 50, y_pos, gfx::colors::gray50, false);
+            gfx::draw_text("????????????????", font_small_id, 70, y_pos + 25, gfx::colors::dark_gray);
         }
         y_pos += 60;
     }
     std::string progress_text = "Tiến độ: " + std::to_string(unlocked_count) + "/" + std::to_string(achievements.size());
-    render_text(progress_text, 0, 20, Colors::PastelLilac, font_medium, true);
-    render_text("Nhấn ESC để quay lại Menu", 0, WINDOW_H - 40, Colors::Cyan, font_small, true);
+    gfx::draw_text(progress_text, font_text_id, 0, 20, gfx::colors::pastel_lilac, true);
+    gfx::draw_text("Nhấn ESC để quay lại Menu", font_small_id, 0, WINDOW_H - 40, gfx::colors::cyan, true);
 }
 
 
@@ -179,8 +157,6 @@ void load_pretrained_brain(AIPlayer& ai) {
     ai.target_brain.copy_from(ai.brain);
     std::cout << "Da nap xong bo nao 'Vip Pro'!\n";
 }
-
-// Thêm 2 hàm này vào main.cpp
 
 // Hàm lưu các kinh nghiệm của "chuyên gia" (bạn) ra file
 void save_expert_demonstrations(const std::string& filename) {
@@ -231,18 +207,14 @@ void load_expert_demonstrations(const std::string& filename) {
 int main(int argc, char* argv[]) {
     load_config("config.ini");
     parse_args(argc, argv);
-    init();
-
-    // SetConsoleOutputCP(65001);
-    // SetConsoleCP(65001);
+    init(); // Đã refactor sang GFX
 
     achievement_manager.initialize();
     achievement_manager.load_progress(player_stats, ai_stats);
     ai_player.epsilon = config.epsilon;
 
-    Uint32 frame_start;
-    int frame_time;
-
+    // === LOGIC VÒNG LẶP ĐÃ CẬP NHẬT CHO GFX ===
+    // (Loại bỏ logic frame delay thủ công)
     while (is_running) {
         if (current_mode == GameMode::HEADLESS_TRAINING) {
             handle_input(); // Vẫn xử lý để có thể nhấn ESC thoát
@@ -251,22 +223,21 @@ int main(int argc, char* argv[]) {
                 reset_game();
             }
         } else {
-            frame_start = SDL_GetTicks();
+            // GFX xử lý clear và present
+            gfx::begin_draw(gfx::colors::night_sky);
+
             handle_input();
             if (current_mode == GameMode::PLAYING || current_mode == GameMode::TRAINING_SESSION) {
                 update();
             }
-            render();
-            int current_frame_delay = (config.fps > 0) ? (1000 / config.fps) : 0;
-            frame_time = SDL_GetTicks() - frame_start;
-            if (current_frame_delay > frame_time) {
-                SDL_Delay(current_frame_delay - frame_time);
-            }
+            render(); // Chỉ gọi các hàm gfx::draw_*
+
+            gfx::end_draw();
         }
     }
 
     achievement_manager.save_progress(player_stats, ai_stats);
-    cleanup();
+    cleanup(); // Đã refactor sang GFX
     return 0;
 }
 
@@ -317,38 +288,32 @@ void parse_args(int argc, char* argv[]) {
     }
 }
 
-
+// === ĐÃ REFACTOR SANG GFX ===
 void init() {
-    SDL_Init(SDL_INIT_VIDEO);
-    TTF_Init();
-    window = SDL_CreateWindow("Snake AI", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, WINDOW_W, WINDOW_H, SDL_WINDOW_SHOWN);
+    // GFX lo việc init SDL, TTF, Window, Renderer
+    if (!gfx::init("Rắn Săn Mồi AI - Phiên Bản Hoàn Chỉnh", WINDOW_W, WINDOW_H)) {
+        std::cerr << "Lỗi: Không thể khởi tạo GFX.\n";
+        exit(1);
+    }
     
-    // 3. THÊM 2 DÒNG NÀY NGAY BÊN DƯỚI:
-    renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
-    SDL_SetWindowTitle(window, "Rắn Săn Mồi AI - Phiên Bản Hoàn Chỉnh"); // <-- Thêm dòng này
-    font_small = TTF_OpenFont("CascadiaCode.ttf", 18);
-    font_medium = TTF_OpenFont("CascadiaCode.ttf", 24);
-    font_large = TTF_OpenFont("CascadiaCode.ttf", 48);
-    if (!font_small || !font_medium || !font_large) {
+    // GFX lo việc tải fonts
+    if (!gfx::add_font("small", "CascadiaCode.ttf", 18) ||
+        !gfx::add_font("medium", "CascadiaCode.ttf", 24) ||
+        !gfx::add_font("large", "CascadiaCode.ttf", 48)) {
         std::cerr << "Lỗi: Không tìm thấy font CascadiaCode.ttf hoặc không thể mở." << std::endl;
+        gfx::shutdown();
         exit(1);
     }
 }
 
+// === ĐÃ REFACTOR SANG GFX ===
 void cleanup() {
-    TTF_CloseFont(font_small);
-    TTF_CloseFont(font_medium);
-    TTF_CloseFont(font_large);
-    SDL_DestroyRenderer(renderer);
-    SDL_DestroyWindow(window);
-    TTF_Quit();
-    SDL_Quit();
+    gfx::shutdown(); // GFX lo việc dọn dẹp
 }
 
 // THAY THẾ HÀM reset_game CŨ
 void reset_game() {
     // Bước 1: Cập nhật điểm cao nhất từ ván vừa kết thúc.
-    // Chỉ cập nhật khi không phải đang ở menu (tránh reset lúc mới vào game)
     if (current_mode != GameMode::MENU) {
         if (player_stats.highest_score < player1.body.size()) {
             player_stats.highest_score = player1.body.size();
@@ -358,12 +323,11 @@ void reset_game() {
         }
     }
     
-    // Bước 2: Tăng số ván chơi một cách an toàn và chính xác.
-    // Xác định chế độ chơi nào vừa kết thúc để tăng bộ đếm cho đúng.
+    // Bước 2: Tăng số ván chơi
     bool ai_played_last_game = (play_mode_cache == PlayMode::AI_ONLY || play_mode_cache == PlayMode::PLAYER_VS_AI || current_mode == GameMode::HEADLESS_TRAINING);
     bool player_played_last_game = (play_mode_cache == PlayMode::PLAYER_ONLY || play_mode_cache == PlayMode::PLAYER_VS_AI || current_mode == GameMode::TRAINING_SESSION);
 
-    if (current_mode != GameMode::MENU) { // Không tính lần reset đầu tiên khi vào game
+    if (current_mode != GameMode::MENU) { 
         if (player_played_last_game) {
             player_stats.games_played++;
         }
@@ -372,19 +336,19 @@ void reset_game() {
         }
     }
 
-    // Bước 3: Reset các đối tượng game về trạng thái ban đầu
+    // Bước 3: Reset các đối tượng game
     player1.reset({5, 5}, Dir::RIGHT);
     ai_player.reset({GRID_W - 5, 5}, Dir::LEFT);
     spawn_apple();
 
-    // Bước 4: Reset các biến đếm của ván mới
-    game_start_time = SDL_GetTicks();
+    // Bước 4: Reset các biến đếm
+    game_start_time = gfx::get_ticks(); // Dùng GFX
     player_apples_this_game = 0;
     ai_apples_this_game = 0;
     mirror_match_start_time = 0;
     steps_since_apple = 0;
     
-    // Bước 5: Cập nhật Epsilon cho AI (chỉ khi AI có chơi)
+    // Bước 5: Cập nhật Epsilon
     if (ai_played_last_game) {
         if (ai_player.epsilon > config.min_epsilon) {
             ai_player.epsilon *= config.epsilon_decay;
@@ -419,7 +383,6 @@ void update() {
         if (!snake.is_alive) return 0.0;
 
         Point head = snake.body.front();
-        // Dùng khoảng cách Euclidean (chính xác hơn)
         double old_dist = std::hypot(head.x - apple.x, head.y - apple.y); 
         
         Point new_head = head;
@@ -437,12 +400,12 @@ void update() {
         if (new_head.y >= GRID_H) new_head.y = 0;
 
         // Kiểm tra va chạm
-        // for (const auto& segment : snake.body) {
-        //     if (new_head == segment) {
-        //         snake.is_alive = false;
-        //         return -10.0; // Phạt nặng vì tự cắn
-        //     }
-        // }
+        for (const auto& segment : snake.body) {
+            if (new_head == segment) {
+                snake.is_alive = false;
+                return -10.0; // Phạt nặng vì tự cắn
+            }
+        }
         if (play_mode_cache == PlayMode::PLAYER_VS_AI) {
             for (const auto& segment : opponent_body) {
                 if (new_head == segment) {
@@ -461,45 +424,38 @@ void update() {
             if (is_ai) {
                 ai_apples_this_game++;
                 ai_stats.total_apples_eaten++;
-                steps_since_apple = 0; // Reset đồng hồ
+                steps_since_apple = 0;
             } else {
                 player_apples_this_game++;
                 player_stats.total_apples_eaten++;
             }
         } else {
             snake.body.pop_back();
-            // Hệ thống thưởng phạt mới: chỉ có thưởng/phạt khi chết và ăn táo
-            // Loại bỏ các hình phạt nhỏ để AI tự do khám phá hơn
-            // reward = 0; 
-                double new_dist = std::hypot(new_head.x - apple.x, new_head.y - apple.y);
-                reward = (new_dist < old_dist) ? 0.1 : -0.2; // Thưởng khi gần hơn, phạt khi xa hơn
-
+            double new_dist = std::hypot(new_head.x - apple.x, new_head.y - apple.y);
+            reward = (new_dist < old_dist) ? 0.1 : -0.2; 
         }
 
-        // Trừng phạt vì đi lòng vòng không hiệu quả
         if (is_ai && steps_since_apple > GRID_W * GRID_H * 1.5) {
             snake.is_alive = false;
-            reward = -10.0; // Hình phạt tương đương đâm tường
+            reward = -10.0; 
         }
         return reward;
     };
-    // Chế độ ghi lại kinh nghiệm của chuyên gia (người chơi)
+    // Chế độ ghi lại kinh nghiệm của chuyên gia
     if (current_mode == GameMode::TRAINING_SESSION) {
-        if (!player1.is_alive) { // Nếu chết thì quay về menu
+        if (!player1.is_alive) { 
             current_mode = GameMode::MENU;
             return;
         }
         std::deque<Point> empty_body;
-        std::vector<double> state_before_move = ai_player.get_state_vector(apple, empty_body); // Dùng AI để lấy state cho player
+        std::vector<double> state_before_move = ai_player.get_state_vector(apple, empty_body); 
         int action_taken = static_cast<int>(player1.direction);
-        move_snake(player1, false, empty_body); // Di chuyển player
+        move_snake(player1, false, empty_body); 
         expert_demonstrations.push_back({state_before_move, action_taken, 1.0, {}, false});
-        return; // Kết thúc update cho frame này
+        return; 
     }
 
     // Các chế độ chơi bình thường
-
-
     bool is_ai_turn = (play_mode_cache == PlayMode::AI_ONLY || play_mode_cache == PlayMode::PLAYER_VS_AI || current_mode == GameMode::HEADLESS_TRAINING);
     bool is_player_turn = (play_mode_cache == PlayMode::PLAYER_ONLY || play_mode_cache == PlayMode::PLAYER_VS_AI);
     
@@ -522,7 +478,20 @@ void update() {
     }
     
     bool game_is_over = (!player1.is_alive && is_player_turn) || (!ai_player.is_alive && is_ai_turn);
-    Uint32 game_time = SDL_GetTicks() - game_start_time;
+    uint32_t game_time = gfx::get_ticks() - game_start_time; // Dùng GFX
+    
+    // Cập nhật logic check mirror_match
+    if (play_mode_cache == PlayMode::PLAYER_VS_AI && 
+        player1.is_alive && ai_player.is_alive && 
+        player1.body.size() == ai_player.body.size() && player1.body.size() > 3) 
+    {
+        if (mirror_match_start_time == 0) {
+            mirror_match_start_time = gfx::get_ticks();
+        }
+    } else {
+        mirror_match_start_time = 0; // Reset
+    }
+    
     achievement_manager.check_achievements(player_stats, player1, player_apples_this_game, ai_stats, ai_player, ai_apples_this_game, play_mode_cache, game_is_over, game_time, mirror_match_start_time);
     
     if (game_is_over && current_mode != GameMode::HEADLESS_TRAINING) {
@@ -531,172 +500,153 @@ void update() {
 }
 
 
-// THAY THẾ HÀM handle_input CŨ
-// TRONG FILE main.cpp
-// HÃY THAY THẾ HÀM handle_input CŨ BẰNG PHIÊN BẢN NÀY
-
+// === ĐÃ REFACTOR SANG GFX ===
 void handle_input() {
-    SDL_Event e;
-    while (SDL_PollEvent(&e)) {
-        if (e.type == SDL_QUIT) {
+    gfx::event e;
+    while ((e = gfx::poll_event()).type != gfx::event::Type::NONE) {
+        if (e.type == gfx::event::Type::QUIT) {
             is_running = false;
         }
-        if (e.type == SDL_KEYDOWN) {
-            // Các phím tắt toàn cục hoạt động ở mọi nơi
-            if (e.key.keysym.sym == SDLK_s) { ai_player.brain.save_weights("snake_brain.bin"); std::cout << "Đã lưu bộ não AI!\n"; }
-            if (e.key.keysym.sym == SDLK_l) { ai_player.brain.load_weights("snake_brain.bin"); ai_player.target_brain.copy_from(ai_player.brain); std::cout << "Đã tải bộ não AI!\n"; }
-            if (e.key.keysym.sym == SDLK_ESCAPE) { current_mode = GameMode::MENU; }
+        if (e.type == gfx::event::Type::KEYDOWN) {
+            // Các phím tắt toàn cục
+            if (e.key == gfx::key::S) { ai_player.brain.save_weights("snake_brain.bin"); std::cout << "Đã lưu bộ não AI!\n"; }
+            if (e.key == gfx::key::L) { ai_player.brain.load_weights("snake_brain.bin"); ai_player.target_brain.copy_from(ai_player.brain); std::cout << "Đã tải bộ não AI!\n"; }
+            if (e.key == gfx::key::ESCAPE) { current_mode = GameMode::MENU; }
 
             // Xử lý input theo từng màn hình (GameMode)
             switch (current_mode) {
                 case GameMode::MENU:
-                    switch (e.key.keysym.sym) {
-                        case SDLK_UP:   selected_menu_item = (selected_menu_item - 1 + 6) % 6; break; // Có 6 mục
-                        case SDLK_DOWN: selected_menu_item = (selected_menu_item + 1) % 6; break;
-                        case SDLK_RETURN: case SDLK_KP_ENTER:
+                    switch (e.key) {
+                        case gfx::key::UP:   selected_menu_item = (selected_menu_item - 1 + 6) % 6; break;
+                        case gfx::key::DOWN: selected_menu_item = (selected_menu_item + 1) % 6; break;
+                        case gfx::key::RETURN:
                             if      (selected_menu_item == 0) { play_mode_cache = PlayMode::PLAYER_ONLY; current_mode = GameMode::PLAYING; reset_game(); }
                             else if (selected_menu_item == 1) { play_mode_cache = PlayMode::AI_ONLY;     current_mode = GameMode::PLAYING; reset_game(); }
                             else if (selected_menu_item == 2) { play_mode_cache = PlayMode::PLAYER_VS_AI;  current_mode = GameMode::PLAYING; reset_game(); }
                             else if (selected_menu_item == 3) { play_mode_cache = PlayMode::AI_ONLY;     current_mode = GameMode::HEADLESS_TRAINING; reset_game(); }
-                            else if (selected_menu_item == 4) { play_mode_cache = PlayMode::PLAYER_ONLY; current_mode = GameMode::TRAINING_SESSION; reset_game(); } // Chế độ Dạy AI
+                            else if (selected_menu_item == 4) { play_mode_cache = PlayMode::PLAYER_ONLY; current_mode = GameMode::TRAINING_SESSION; reset_game(); } 
                             else if (selected_menu_item == 5) { current_mode = GameMode::ACHIEVEMENT_LIST; }
                             break;
-                            case SDLK_t: // Phím tắt để huấn luyện từ dữ liệu chuyên gia
-                                if (!expert_demonstrations.empty()) {
-                                    // Trộn dữ liệu một lần trước khi train
-                                    std::shuffle(
-                                        expert_demonstrations.begin(),
-                                        expert_demonstrations.end(),
-                                        std::mt19937{std::random_device{}()}
-                                    );
-
-                                    // Gọi hàm train mới (đã hỗ trợ batch_size)
-                                    ai_player.train_from_demonstrations(
-                                        expert_demonstrations,
-                                        config.epochs,           // số epoch
-                                        config.learning_rate,    // learning rate
-                                        config.batch_size        // batch size
-                                    );
-
-                                    expert_demonstrations.clear();
-                                    std::cout << "Đã học xong dữ liệu từ chuyên gia. Nhấn S để lưu lại bộ não mới.\n";
-                                } else {
-                                    std::cout << "Chưa có dữ liệu từ chuyên gia để huấn luyện! Hãy vào chế độ 'AI Training'.\n";
-                                }
-                                break;
-                            case SDLK_p: // 'P' for Pre-trained
-                                load_pretrained_brain(ai_player);
-                                break;
-                            case SDLK_i:
-                                load_expert_demonstrations("expert_data.bin");
-                                break;
-                            case SDLK_e:
-                                save_expert_demonstrations("expert_data.bin");
-                                break;
-
+                        case gfx::key::T: // Phím tắt 'T'
+                            if (!expert_demonstrations.empty()) {
+                                std::shuffle(
+                                    expert_demonstrations.begin(),
+                                    expert_demonstrations.end(),
+                                    std::mt19937{std::random_device{}()}
+                                );
+                                ai_player.train_from_demonstrations(
+                                    expert_demonstrations,
+                                    config.epochs,
+                                    config.learning_rate,
+                                    config.batch_size
+                                );
+                                expert_demonstrations.clear();
+                                std::cout << "Đã học xong dữ liệu từ chuyên gia. Nhấn S để lưu lại bộ não mới.\n";
+                            } else {
+                                std::cout << "Chưa có dữ liệu từ chuyên gia để huấn luyện! Hãy vào chế độ 'AI Training'.\n";
+                            }
+                            break;
+                        case gfx::key::P: // 'P' for Pre-trained
+                            load_pretrained_brain(ai_player);
+                            break;
+                        case gfx::key::I: // 'I' for Import
+                            load_expert_demonstrations("expert_data.bin");
+                            break;
+                        case gfx::key::E: // 'E' for Export
+                            save_expert_demonstrations("expert_data.bin");
+                            break;
+                        default: break;
                     }
                     break;
 
                 case GameMode::PLAYING:
                 case GameMode::TRAINING_SESSION:
-                    if (e.key.keysym.sym == SDLK_r) { reset_game(); }
-                    switch (e.key.keysym.sym) {
-                        case SDLK_UP:    if (player1.direction != Dir::DOWN) player1.direction = Dir::UP; break;
-                        case SDLK_DOWN:  if (player1.direction != Dir::UP) player1.direction = Dir::DOWN; break;
-                        case SDLK_LEFT:  if (player1.direction != Dir::RIGHT) player1.direction = Dir::LEFT; break;
-                        case SDLK_RIGHT: if (player1.direction != Dir::LEFT) player1.direction = Dir::RIGHT; break;
+                    if (e.key == gfx::key::R) { reset_game(); }
+                    switch (e.key) {
+                        case gfx::key::UP:    if (player1.direction != Dir::DOWN) player1.direction = Dir::UP; break;
+                        case gfx::key::DOWN:  if (player1.direction != Dir::UP) player1.direction = Dir::DOWN; break;
+                        case gfx::key::LEFT:  if (player1.direction != Dir::RIGHT) player1.direction = Dir::LEFT; break;
+                        case gfx::key::RIGHT: if (player1.direction != Dir::LEFT) player1.direction = Dir::RIGHT; break;
+                        default: break;
                     }
                     break;
 
                 case GameMode::GAME_OVER:
-                    if (e.key.keysym.sym == SDLK_r) { current_mode = GameMode::PLAYING; reset_game(); }
+                    if (e.key == gfx::key::R) { current_mode = GameMode::PLAYING; reset_game(); }
                     break;
                 
-                default: break; // Các mode khác chỉ cần ESC (đã xử lý ở trên)
+                default: break;
             }
         }
     }
 }
 
+// === HÀM render_text ĐÃ BỊ XÓA (gfx::draw_text thay thế) ===
 
-void render_text(const std::string& text, int x, int y, SDL_Color color, TTF_Font* font, bool is_centered) {
-    SDL_Surface* surface = TTF_RenderUTF8_Blended(font, text.c_str(), color);
-    if (!surface) return;
-    SDL_Texture* texture = SDL_CreateTextureFromSurface(renderer, surface);
-    SDL_Rect dst = {x, y, surface->w, surface->h};
-    if (is_centered) dst.x = (WINDOW_W - dst.w) / 2;
-    SDL_RenderCopy(renderer, texture, nullptr, &dst);
-    SDL_DestroyTexture(texture);
-    SDL_FreeSurface(surface);
-}
-
+// === ĐÃ REFACTOR SANG GFX ===
 void render_menu() {
-    // Thêm lựa chọn mới vào danh sách
     const std::vector<std::string> menu_items = {
         "Chơi một mình",
         "Xem AI chơi",
         "Solo với AI",
         "Training Trong Mơ (Siêu Tốc)",
-        "Dạy AI Chơi (Snake Trainer)", // <-- LỰA CHỌN MỚI
+        "Dạy AI Chơi (Snake Trainer)", 
         "Xem Thành Tích"
     };
     const int menu_item_count = menu_items.size();
 
-    render_text("Rắn Săn Mồi AI", 0, 80, Colors::NeonCyan, font_large, true);
+    gfx::draw_text("Rắn Săn Mồi AI", "large", 0, 80, gfx::colors::neon_cyan, true);
 
-    // Vòng lặp vẽ các mục trong menu
     for (int i = 0; i < menu_item_count; ++i) {
         bool is_selected = (i == selected_menu_item);
-        SDL_Color color = is_selected ? Colors::NeonYellow : Colors::White;
+        gfx::color color = is_selected ? gfx::colors::neon_yellow : gfx::colors::white;
 
-        // Vẽ nền highlight cho mục đang được chọn
         if (is_selected) {
-            SDL_Surface* s = TTF_RenderUTF8_Blended(font_medium, menu_items[i].c_str(), color);
-            if(s) {
-                SDL_Rect bg = {(WINDOW_W - s->w - 20) / 2, 180 + i * 50 - 5, s->w + 20, s->h + 10};
-                Colors::SetDrawColor(renderer, Colors::TwilightPurple);
-                SDL_RenderFillRect(renderer, &bg);
-                SDL_FreeSurface(s);
-            }
+            int tw = 0, th = 0;
+            gfx::get_text_size(menu_items[i], "medium", tw, th);
+            int bg_x = (WINDOW_W - tw - 20) / 2;
+            int bg_y = 180 + i * 50 - 5;
+            int bg_w = tw + 20;
+            int bg_h = th + 10;
+            gfx::draw_rect(bg_x, bg_y, bg_w, bg_h, gfx::colors::twilight_purple, true);
         }
-        render_text(menu_items[i], 0, 180 + i * 50, color, font_medium, true);
+        gfx::draw_text(menu_items[i], "medium", 0, 180 + i * 50, color, true);
     }
-
-    // Cập nhật dòng hướng dẫn ở cuối
-    render_text("L/S: Tải/Lưu Não | T: Train từ Dữ liệu | R: Chơi Lại | ESC: Menu", 0, WINDOW_H - 40, Colors::Gray80, font_small, true);
+    
+    gfx::draw_text("L/S: Tải/Lưu Não | T: Train từ Dữ liệu | R: Chơi Lại | ESC: Menu", "small", 0, WINDOW_H - 40, gfx::colors::gray80, true);
 }
 
-
+// === ĐÃ REFACTOR SANG GFX ===
 void render_game() {
     if (play_mode_cache != PlayMode::AI_ONLY) {
         for(const auto& p : player1.body) {
-            SDL_Rect rect = {p.x*CELL_SIZE, p.y*CELL_SIZE, CELL_SIZE, CELL_SIZE};
-            Colors::SetDrawColor(renderer, player1.is_alive ? Colors::VaporNeonGreen : Colors::Gray50);
-            SDL_RenderFillRect(renderer, &rect);
+            gfx::draw_rect(p.x*CELL_SIZE, p.y*CELL_SIZE, CELL_SIZE, CELL_SIZE, 
+                           player1.is_alive ? gfx::colors::vapor_neon_green : gfx::colors::gray50, true);
         }
     }
     if (play_mode_cache != PlayMode::PLAYER_ONLY) {
         for(const auto& p : ai_player.body) {
-            SDL_Rect rect = {p.x*CELL_SIZE, p.y*CELL_SIZE, CELL_SIZE, CELL_SIZE};
-            Colors::SetDrawColor(renderer, ai_player.is_alive ? Colors::VaporPurple : Colors::Gray50);
-            SDL_RenderFillRect(renderer, &rect);
+            gfx::draw_rect(p.x*CELL_SIZE, p.y*CELL_SIZE, CELL_SIZE, CELL_SIZE, 
+                           ai_player.is_alive ? gfx::colors::vapor_purple : gfx::colors::gray50, true);
         }
     }
-    SDL_Rect apple_rect = {apple.x*CELL_SIZE, apple.y*CELL_SIZE, CELL_SIZE, CELL_SIZE};
-    Colors::SetDrawColor(renderer, Colors::NeonOrange);
-    SDL_RenderFillRect(renderer, &apple_rect);
+    
+    gfx::draw_rect(apple.x*CELL_SIZE, apple.y*CELL_SIZE, CELL_SIZE, CELL_SIZE, gfx::colors::neon_orange, true);
+    
     std::string score_text;
     if (play_mode_cache == PlayMode::PLAYER_VS_AI) score_text = "Player: " + std::to_string(player1.body.size()) + " | AI: " + std::to_string(ai_player.body.size());
     else if (play_mode_cache == PlayMode::PLAYER_ONLY) score_text = "Điểm: " + std::to_string(player1.body.size());
     else score_text = "Điểm AI: " + std::to_string(ai_player.body.size());
-    render_text(score_text, 10, 10, Colors::White, font_medium);
+    
+    gfx::draw_text(score_text, "medium", 10, 10, gfx::colors::white);
 }
 
+// === ĐÃ REFACTOR SANG GFX ===
 void render_game_over() {
-    SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
-    SDL_SetRenderDrawColor(renderer, 20, 20, 20, 210);
-    SDL_Rect overlay = {0, 0, WINDOW_W, WINDOW_H};
-    SDL_RenderFillRect(renderer, &overlay);
+    gfx::set_blended_mode(true);
+    gfx::draw_rect(0, 0, WINDOW_W, WINDOW_H, {20, 20, 20, 210}, true);
+    gfx::set_blended_mode(false);
+
     std::string winner_text = "";
     if (play_mode_cache == PlayMode::PLAYER_VS_AI) {
         if (!player1.is_alive && !ai_player.is_alive) winner_text = "Hòa!";
@@ -705,19 +655,22 @@ void render_game_over() {
     } else {
         winner_text = "GAME OVER";
     }
-    render_text(winner_text, 0, WINDOW_H / 2 - 100, Colors::NeonOrange, font_large, true);
+    
+    gfx::draw_text(winner_text, "large", 0, WINDOW_H / 2 - 100, gfx::colors::neon_orange, true);
+    
     std::string score_info;
     if (play_mode_cache == PlayMode::PLAYER_ONLY) score_info = "Điểm cuối: " + std::to_string(player1.body.size());
     else if (play_mode_cache == PlayMode::AI_ONLY) score_info = "Điểm cuối: " + std::to_string(ai_player.body.size());
     else score_info = "Tỉ số: Player " + std::to_string(player1.body.size()) + " - " + std::to_string(ai_player.body.size()) + " AI";
-    render_text(score_info, 0, WINDOW_H / 2, Colors::White, font_medium, true);
-    render_text("Nhấn 'R' để chơi lại | 'ESC' để về Menu", 0, WINDOW_H / 2 + 50, Colors::Cyan, font_medium, true);
+    
+    gfx::draw_text(score_info, "medium", 0, WINDOW_H / 2, gfx::colors::white, true);
+    gfx::draw_text("Nhấn 'R' để chơi lại | 'ESC' để về Menu", "medium", 0, WINDOW_H / 2 + 50, gfx::colors::cyan, true);
 }
 
-
+// === ĐÃ REFACTOR SANG GFX ===
+// (Hàm này giờ không clear/present nữa)
 void render() {
-    Colors::SetDrawColor(renderer, Colors::NightSky);
-    SDL_RenderClear(renderer);
+    // gfx::begin_draw() đã clear màn hình
 
     switch (current_mode) {
         case GameMode::MENU: render_menu(); break;
@@ -728,27 +681,26 @@ void render() {
             break;
         }
         case GameMode::ACHIEVEMENT_LIST:{
-            achievement_manager.render_list_screen(renderer, font_large, font_medium);
+            achievement_manager.render_list_screen("large", "medium", "small");
             break;
         }
         case GameMode::HEADLESS_TRAINING: {             
-            render_text("TRAINING TRONG MƠ...", 0, WINDOW_H / 2 - 80, Colors::White, font_large, true);
-                std::string progress = "Ván chơi: " + std::to_string(ai_stats.games_played) + " | Điểm cao nhất: " + std::to_string(ai_stats.highest_score);
-                render_text(progress, 0, WINDOW_H / 2, Colors::Cyan, font_medium, true);
-                std::string epsilon_text = "Epsilon: " + std::to_string(ai_player.epsilon);
-                render_text(epsilon_text, 0, WINDOW_H / 2 + 40, Colors::Cyan, font_medium, true);
-                render_text("Nhấn ESC để quay lại Menu", 0, WINDOW_H - 50, Colors::Gray80, font_small, true);
+            gfx::draw_text("TRAINING TRONG MƠ...", "large", 0, WINDOW_H / 2 - 80, gfx::colors::white, true);
+            std::string progress = "Ván chơi: " + std::to_string(ai_stats.games_played) + " | Điểm cao nhất: " + std::to_string(ai_stats.highest_score);
+            gfx::draw_text(progress, "medium", 0, WINDOW_H / 2, gfx::colors::cyan, true);
+            std::string epsilon_text = "Epsilon: " + std::to_string(ai_player.epsilon);
+            gfx::draw_text(epsilon_text, "medium", 0, WINDOW_H / 2 + 40, gfx::colors::cyan, true);
+            gfx::draw_text("Nhấn ESC để quay lại Menu", "small", 0, WINDOW_H - 50, gfx::colors::gray80, true);
             break;
         }
         case GameMode::TRAINING_SESSION: {
-            // Vẽ như game bình thường để người chơi “dạy AI”
             render_game();
-            // Và có thể hiển thị thêm dòng hướng dẫn
-            render_text("Training Session: Điểu khiển để tạo data cho AI", 0, WINDOW_H - 40, Colors::Cyan, font_small, true);
+            gfx::draw_text("Training Session: Điểu khiển để tạo data cho AI", "small", 0, WINDOW_H - 40, gfx::colors::cyan, true);
             break;
         }
     }
 
-    achievement_manager.render_notifications(renderer, font_medium);
-    SDL_RenderPresent(renderer);
+    achievement_manager.render_notifications("medium");
+    
+    // gfx::end_draw() sẽ present
 }
